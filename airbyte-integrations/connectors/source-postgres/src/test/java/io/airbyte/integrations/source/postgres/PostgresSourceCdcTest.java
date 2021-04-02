@@ -26,13 +26,7 @@ package io.airbyte.integrations.source.postgres;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airbyte.commons.json.Jsons;
@@ -42,22 +36,16 @@ import io.airbyte.db.Database;
 import io.airbyte.db.Databases;
 import io.airbyte.protocol.models.AirbyteCatalog;
 import io.airbyte.protocol.models.AirbyteMessage;
-import io.airbyte.protocol.models.AirbyteRecordMessage;
 import io.airbyte.protocol.models.CatalogHelpers;
 import io.airbyte.protocol.models.ConfiguredAirbyteCatalog;
 import io.airbyte.protocol.models.Field;
 import io.airbyte.protocol.models.Field.JsonSchemaPrimitive;
 import io.airbyte.protocol.models.SyncMode;
 import io.airbyte.test.utils.PostgreSQLContainerHelper;
-import io.debezium.engine.ChangeEvent;
-import java.io.IOException;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-
 import org.apache.commons.lang3.RandomStringUtils;
 import org.jooq.SQLDialect;
 import org.junit.jupiter.api.BeforeAll;
@@ -138,7 +126,6 @@ class PostgresSourceCdcTest {
           "CREATE TABLE \"n\"\"aMéS\"(first_name VARCHAR(200), last_name VARCHAR(200), power double precision, PRIMARY KEY (first_name, last_name));");
       ctx.fetch(
           "INSERT INTO \"n\"\"aMéS\"(first_name, last_name, power) VALUES ('san', 'goku', 'Infinity'),  ('prince', 'vegeta', 9000.1);");
-
 
       return null;
     });
@@ -232,6 +219,7 @@ class PostgresSourceCdcTest {
     assertEquals(expectedWhitelist, actualWhitelist);
   }
 
+  @Test
   public void testItState() throws Exception {
     final PostgresSource source = new PostgresSource();
     final ConfiguredAirbyteCatalog configuredCatalog =
@@ -276,53 +264,6 @@ class PostgresSourceCdcTest {
     }
 
     assertEquals(11, messages2.size());
-  }
-
-  @Test
-  public void testConvertChangeEvent() throws IOException {
-    final String stream = "names";
-    final Instant emittedAt = Instant.now();
-    ChangeEvent<String, String> insertChangeEvent = mockChangeEvent("insert_change_event.json");
-    ChangeEvent<String, String> updateChangeEvent = mockChangeEvent("update_change_event.json");
-    ChangeEvent<String, String> deleteChangeEvent = mockChangeEvent("delete_change_event.json");
-
-    final AirbyteMessage actualInsert = PostgresSource.convertChangeEvent(insertChangeEvent, emittedAt);
-    final AirbyteMessage actualUpdate = PostgresSource.convertChangeEvent(updateChangeEvent, emittedAt);
-    final AirbyteMessage actualDelete = PostgresSource.convertChangeEvent(deleteChangeEvent, emittedAt);
-
-    final AirbyteMessage expectedInsert = createAirbyteMessage(stream, emittedAt, "insert_message.json");
-    final AirbyteMessage expectedUpdate = createAirbyteMessage(stream, emittedAt, "update_message.json");
-    final AirbyteMessage expectedDelete = createAirbyteMessage(stream, emittedAt, "delete_message.json");
-
-    deepCompare(expectedInsert, actualInsert);
-    deepCompare(expectedUpdate, actualUpdate);
-    deepCompare(expectedDelete, actualDelete);
-  }
-
-  private static ChangeEvent<String, String> mockChangeEvent(String resourceName) throws IOException {
-    final ChangeEvent<String, String> mocked = mock(ChangeEvent.class);
-    final String resource = MoreResources.readResource(resourceName);
-    when(mocked.value()).thenReturn(resource);
-
-    return mocked;
-  }
-
-  private static AirbyteMessage createAirbyteMessage(String stream, Instant emittedAt, String resourceName) throws IOException {
-    final String data = MoreResources.readResource(resourceName);
-
-    final AirbyteRecordMessage recordMessage = new AirbyteRecordMessage()
-        .withStream(stream)
-        .withData(Jsons.deserialize(data))
-        .withEmittedAt(emittedAt.toEpochMilli());
-
-    return new AirbyteMessage()
-        .withType(AirbyteMessage.Type.RECORD)
-        .withRecord(recordMessage);
-  }
-
-  private static void deepCompare(Object expected, Object actual) throws JsonProcessingException {
-    ObjectMapper objectMapper = new ObjectMapper();
-    assertEquals(objectMapper.readTree(Jsons.serialize(expected)), objectMapper.readTree(Jsons.serialize(actual)));
   }
 
 }
