@@ -25,6 +25,7 @@ export default abstract class BaseResource extends Resource {
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "include",
     };
     if (this.fetchOptionsPlugin) options = this.fetchOptionsPlugin(options);
     if (body) options.body = JSON.stringify(body);
